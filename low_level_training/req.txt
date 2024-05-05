@@ -1,0 +1,16 @@
+agent code: PPO.py
+
+low-level
+training code: training.py (cpu and gpu)
+evaluation code: evaluation.py
+
+high-level
+training: HRL_training.py
+evaluation code:HRL_evaluation.py
+
+things to consider:
+import mlagents as a prerequisite
+
+additional feature:
+record video in evaluation
+graphing
