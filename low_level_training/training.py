@@ -7,12 +7,7 @@ from PPO_agent import PPO,PPOBuffer
 
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
-##from mlagents_envs.envs.unity_gym_env import UnityToGymWrapper
 from mlagents_envs.envs.unity_gym_env import UnityToGymWrapper
-# import spinup.algos.pytorch.ppo.core as core
-# from spinup.utils.logx import EpochLogger
-# from spinup.utils.mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
-# from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 
 def to_one_hot(y, num_columns):
     """Returns one-hot encoded Variable"""
@@ -50,26 +45,6 @@ def transform_high_level(high_level_action):
 
     return np.array([x,y,z])
 
-
-def evaluate_greedy(env_test, agent, args, test_iter, test_n, state_dim, latent_cont_dim, latent_disc_dim):
-
-    state_test = env_test.reset()
-    z = uniform_sampling(latent_cont_dim, latent_disc_dim)
-
-    return_epi_test = 0
-    for t_test in range(int(args['max_episode_len'])):
-        action_test = agent.select_action(np.reshape(state_test, (1, state_dim)), z, stochastic=False)
-        state_test2, reward_test, terminal_test, info_test = env_test.step(action_test)
-        state_test = state_test2
-        return_epi_test = return_epi_test + reward_test
-        if terminal_test:
-            env_test.reset()
-            break
-    print('| test_iter: ',test_iter,' | nn: ',test_n,' | return_epi_test: ',return_epi_test,' |')
-
-
-    return return_epi_test
-
 def evaluate_greedy_ppo(env_test, agent, args, test_iter, test_n, state_dim, latent_cont_dim, latent_disc_dim):
 
     state_test = env_test.reset()
@@ -90,7 +65,7 @@ def evaluate_greedy_ppo(env_test, agent, args, test_iter, test_n, state_dim, lat
     return return_epi_test
 
 
-def train_ppo(env, env_test, agent, args, latent_cont_dim, latent_disc_dim ):
+def train_ppo(env, env_test, agent, args):
 
     # Initialize replay memory
     total_step_cnt = 0
@@ -100,11 +75,7 @@ def train_ppo(env, env_test, agent, args, latent_cont_dim, latent_disc_dim ):
 
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.shape[0]
-    max_action = float(env.action_space.high[0])
-    latent_dim = latent_cont_dim + latent_disc_dim
 
-    ##replay_buffer = LPPOBuffer(state_dim, action_dim, latent_dim, int(args['steps_per_epoch']),
-                              ##args['gamma'], args['lam'] )
     replay_buffer = PPOBuffer(state_dim,action_dim,int(args['steps_per_epoch']))
 
     while total_step_cnt in range( int(args['total_step_num']) ):
@@ -121,8 +92,6 @@ def train_ppo(env, env_test, agent, args, latent_cont_dim, latent_disc_dim ):
             action, value, logp = agent.select_action(np.array(state), stochastic=True)
             state2, reward, terminal, info = env.step(action)
 
-            # Store data in replay buffer
-            ##replay_buffer.store(state, action,z, reward, value, logp)
             replay_buffer.store(state,action,reward,value,logp)
             state = state2
 
@@ -138,7 +107,6 @@ def train_ppo(env, env_test, agent, args, latent_cont_dim, latent_disc_dim ):
                 if epoch_ended and not (terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.' % ep_len, flush=True)
                 if timeout or epoch_ended:
-                    ##_, v, _ = agent.select_action(np.array(state),z, stochastic=True)
                     _, v, _ = agent.select_action(np.array(state),stochastic=True)
                 else:
                     v = 0
@@ -146,10 +114,8 @@ def train_ppo(env, env_test, agent, args, latent_cont_dim, latent_disc_dim ):
                 replay_buffer.finish_path(v)
 
                 epi_cnt += 1
-                ##print('epi_cnt : ',epi_cnt)
                 if epi_cnt % 10 == 0:
                     print('| Reward: ',ep_reward,' | Episode: ',epi_cnt,' | Total step num: ',total_step_cnt,' |')
-                    ##print('| Reward: {:d} | Episode: {:d} | Total step num: {:d} |'.format(int(ep_reward), epi_cnt, total_step_cnt ))
 
                 state, ep_reward, ep_len = env.reset(), 0, 0
                 ##z = np.random.uniform(-1, 1, size=(1, latent_dim))
@@ -159,12 +125,11 @@ def train_ppo(env, env_test, agent, args, latent_cont_dim, latent_disc_dim ):
                 print('total_step_cnt', total_step_cnt)
                 print('evaluating the deterministic policy...')
                 for test_n in range(int(args['test_num'])):
-                    return_epi_test = evaluate_greedy_ppo(env_test, agent, args, test_iter, test_n, state_dim, latent_cont_dim, latent_disc_dim)
+                    return_epi_test = evaluate_greedy_ppo(env_test, agent, args, test_iter, test_n, state_dim)
 
                     # Store the average of returns over the test episodes
                     return_test[test_iter] = return_test[test_iter] + return_epi_test / float(args['test_num'])
 
-                ##print('return_test[{:d}] {:d}'.format(int(test_iter), int(return_test[test_iter])))
                 print('return_test[',test_iter,'] : ',return_test[test_iter])
                 test_iter += 1
 
@@ -182,7 +147,6 @@ def main(args):
     for ite in range(int(args['trial_num'])):
         print('Trial Number:', ite)
 
-        ##env = gym.make(args['env'])
         print("port_offset",args["port_offset"])
         channel = EngineConfigurationChannel()
         unity_env = UnityEnvironment(args["env"],no_graphics=True,worker_id=int(args['port_offset']),side_channels=[channel])
@@ -199,18 +163,14 @@ def main(args):
 
         print('action_space.shape', env.action_space.shape)
         print('observation_space.shape', env.observation_space.shape)
-        action_bound = float(env.action_space.high[0])
 
         assert (env.action_space.high[0] == -env.action_space.low[0])
 
         state_dim = env.observation_space.shape[0]
         action_dim = env.action_space.shape[0]
-        latent_cont_dim = int(args['latent_cont_dim'])
-        latent_disc_dim = int(args['latent_disc_dim'])
 
-        print("PPO training")
         agent = PPO(state_dim,action_dim,ac_kwargs=dict(hidden_sizes=(128,64)))
-        step_R_i = train_ppo(env, env_test, agent, args,  latent_cont_dim=latent_cont_dim, latent_disc_dim=latent_disc_dim)
+        step_R_i = train_ppo(env, env_test, agent, args)
 
         result_path = "./results/trials/ppo"
         result_filename = result_path + args['result_file'] + '_' + args['env'] \
@@ -226,10 +186,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', help='choose the gym env- tested on {Pendulum-v0}')
-    parser.add_argument('--env-id', type=int, default=6, help='choose the gym env- tested on {Pendulum-v0}')
-    parser.add_argument("--latent-cont-dim", default=3, type=int)  # dimension of the continuous latent variable
-    parser.add_argument("--latent-disc-dim", default=0, type=int)  # dimension of the discrete latent variable
+    parser.add_argument('--env',default='High_level')
 
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--lam', type=float, default=0.95)
@@ -246,26 +203,10 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint_path',help='path of directory in which checkpoints are saved',default = './models/lppo')
     parser.add_argument('--port_offset',help='by how many you offset port number',default = 0)
     parser.add_argument('--info_rate',type=float,default=0.2)
-
-    parser.add_argument('--iw',type=int,default=0)
     parser.add_argument('--ppo',type=int,default=0)
     args = parser.parse_args()
 
     args_tmp = parser.parse_args()
-
-    if args_tmp.env is None:
-        env_dict = {00 : "Pendulum-v0",
-                    1 : "InvertedPendulum-v1",
-                    2 : "InvertedDoublePendulum-v1",
-                    3 : "Reacher-v3",
-                    4 : "Swimmer-v3",
-                    5 : "Ant-v3",
-                    6 : "Hopper-v3",
-                    7 : "Walker2d-v3",
-                    8 : "HalfCheetah-v3",
-                    9 : "Humanoid-v3",
-                    }
-        args_tmp.env = env_dict[args_tmp.env_id]
     args = vars(args_tmp)
 
     pp.pprint(args)
