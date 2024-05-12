@@ -8,7 +8,7 @@ from PPO_agent import PPO,PPOBuffer
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 ##from mlagents_envs.envs.unity_gym_env import UnityToGymWrapper
-from gym_unity.envs import UnityToGymWrapper
+from mlagents_envs.envs.unity_gym_env import UnityToGymWrapper
 # import spinup.algos.pytorch.ppo.core as core
 # from spinup.utils.logx import EpochLogger
 # from spinup.utils.mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
