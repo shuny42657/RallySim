@@ -147,7 +147,6 @@ def main(args):
     for ite in range(int(args['trial_num'])):
         print('Trial Number:', ite)
 
-        ##env = gym.make(args['env'])
         print("port_offset",args["port_offset"])
         channel = EngineConfigurationChannel()
         unity_env = UnityEnvironment(args["env"],no_graphics=True,worker_id=int(args['port_offset']),side_channels=[channel])
@@ -187,8 +186,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', help='choose the gym env- tested on {Pendulum-v0}')
-    parser.add_argument('--env-id', type=int, default=6, help='choose the gym env- tested on {Pendulum-v0}')
+    parser.add_argument('--env',default='High_level')
 
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--lam', type=float, default=0.95)
